@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Un Encuentro con Dios - Inscripción</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-purple-50 via-blue-50 to-indigo-100 min-h-screen">
+    <div id="app"></div>
+
+    <script type="module">
+        const { createElement: h, useState, useEffect } = React;
+
+        // Importar iconos desde CDN
+        const Icons = {
+            Users: () => h('svg', { xmlns: "http://www.w3.org/2000/svg", width: 24, height: 24, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 2, strokeLinecap: "round", strokeLinejoin: "round" },
+                h('path', { d: "M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" }),
+                h('circle', { cx: 9, cy: 7, r: 4 }),
+                h('path', { d: "M22 21v-2a4 4 0 0 0-3-3.87" }),
+                h('path', { d: "M16 3.13a4 4 0 0 1 0 7.75" })
+            ),
+            QrCode: () => h('svg', { xmlns: "http://www.w3.org/2000/svg", width: 24, height: 24, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 2, strokeLinecap: "round", strokeLinejoin: "round" },
+                h('rect', { width: 5, height: 5, x: 3, y: 3, rx: 1 }),
+                h('rect', { width: 5, height: 5, x: 16, y: 3, rx: 1 }),
+                h('rect', { width: 5, height: 5, x: 3, y: 16, rx: 1 }),
+                h('path', { d: "M21 16h-3a2 2 0 0 0-2 2v3" }),
+                h('path', { d: "M21 21v.01" }),
+                h('path', { d: "M12 7v3a2 2 0 0 1-2 2H7" }),
+                h('path', { d: "M3 12h.01" }),
+                h('path', { d: "M12 3h.01" }),
+                h('path', { d: "M12 16v.01" }),
+                h('path', { d: "M16 12h1" }),
+                h('path', { d: "M21 12v.01" }),
+                h('path', { d: "M12 21v-1" })
+            ),
+            UserPlus: () => h('svg', { xmlns: "http://www.w3.org/2000/svg", width: 24, height: 24, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 2, strokeLinecap: "round", strokeLinejoin: "round" },
+                h('path', { d: "M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" }),
+                h('circle', { cx: 9, cy: 7, r: 4 }),
+                h('line', { x1: 19, x2: 19, y1: 8, y2: 14 }),
+                h('line', { x1: 22, x2: 16, y1: 11, y2: 11 })
+            ),
+            CheckCircle: () => h('svg', { xmlns: "http://www.w3.org/2000/svg", width: 24, height: 24, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 2, strokeLinecap: "round", strokeLinejoin: "round" },
+                h('path', { d: "M22 11.08V12a10 10 0 1 1-5.93-9.14" }),
+                h('polyline', { points: "22 4 12 14.01 9 11.01" })
+            ),
+            Download: () => h('svg', { xmlns: "http://www.w3.org/2000/svg", width: 24, height: 24, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 2, strokeLinecap: "round", strokeLinejoin: "round" },
+                h('path', { d: "M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" }),
+                h('polyline', { points: "7 10 12 15 17 10" }),
+                h('line', { x1: 12, x2: 12, y1: 15, y2: 3 })
+            )
+        };
+
+        function App() {
+            const [vista, setVista] = useState('formulario');
+            const [inscriptos, setInscriptos] = useState([]);
+            const [mensaje, setMensaje] = useState('');
+            const [esAdmin, setEsAdmin] = useState(false);
+            const [claveIngresada, setClaveIngresada] = useState('');
+            const [formData, setFormData] = useState({
+                nombre: '',
+                apellido: '',
+                edad: '',
+                ciudad: '',
+                telefono: ''
+            });
+
+            const CLAVE_ADMIN = 'retiro2025';
+            const CIUDADES = ['María Grande', 'El Pingo', 'Est. Sosa', 'Tabossi', 'Otras'];
+            const FECHA_RETIRO = new Date('2025-11-02');
+
+            useEffect(() => {
+                if (esAdmin) {
+                    cargarInscriptos();
+                }
+            }, [esAdmin]);
+
+            const cargarInscriptos = () => {
+                if (typeof window.storage !== 'undefined') {
+                    window.storage.list('inscripto:').then(result => {
+                        if (result && result.keys) {
+                            Promise.all(
+                                result.keys.map(key => 
+                                    window.storage.get(key)
+                                        .then(data => data ? JSON.parse(data.value) : null)
+                                        .catch(() => null)
+                                )
+                            ).then(datosInscriptos => {
+                                setInscriptos(datosInscriptos.filter(Boolean));
+                            });
+                        }
+                    }).catch(error => {
+                        console.log('Iniciando sin inscriptos previos');
+                    });
+                } else {
+                    const stored = localStorage.getItem('inscriptos');
+                    if (stored) {
+                        setInscriptos(JSON.parse(stored));
+                    }
+                }
+            };
+
+            const handleChange = (e) => {
+                setFormData({
+                    ...formData,
+                    [e.target.name]: e.target.value
+                });
+            };
+
+            const handleSubmit = () => {
+                if (!formData.nombre || !formData.apellido || !formData.edad || !formData.ciudad || !formData.telefono) {
+                    setMensaje('Por favor completa todos los campos');
+                    setTimeout(() => setMensaje(''), 3000);
+                    return;
+                }
+
+                const hoy = new Date();
+                if (hoy > FECHA_RETIRO) {
+                    setMensaje('La fecha del retiro ya ha pasado. No se pueden realizar más inscripciones.');
+                    setTimeout(() => setMensaje(''), 4000);
+                    return;
+                }
+
+                const nuevoInscripto = {
+                    ...formData,
+                    id: Date.now(),
+                    fecha: new Date().toLocaleString('es-AR')
+                };
+
+                if (typeof window.storage !== 'undefined') {
+                    window.storage.set(`inscripto:${nuevoInscripto.id}`, JSON.stringify(nuevoInscripto))
+                        .then(() => {
+                            setInscriptos([...inscriptos, nuevoInscripto]);
+                            setMensaje('¡Inscripción realizada con éxito!');
+                            setFormData({ nombre: '', apellido: '', edad: '', ciudad: '', telefono: '' });
+                            setTimeout(() => setMensaje(''), 3000);
+                        })
+                        .catch(() => {
+                            setMensaje('Error al guardar la inscripción');
+                        });
+                } else {
+                    const nuevaLista = [...inscriptos, nuevoInscripto];
+                    setInscriptos(nuevaLista);
+                    localStorage.setItem('inscriptos', JSON.stringify(nuevaLista));
+                    setMensaje('¡Inscripción realizada con éxito!');
+                    setFormData({ nombre: '', apellido: '', edad: '', ciudad: '', telefono: '' });
+                    setTimeout(() => setMensaje(''), 3000);
+                }
+            };
+
+            const verificarClave = () => {
+                if (claveIngresada === CLAVE_ADMIN) {
+                    setEsAdmin(true);
+                    setMensaje('');
+                } else {
+                    setMensaje('Clave incorrecta');
+                    setTimeout(() => setMensaje(''), 3000);
+                }
+            };
+
+            const cerrarSesionAdmin = () => {
+                setEsAdmin(false);
+                setClaveIngresada('');
+                setVista('formulario');
+            };
+
+            const revocarInscripcion = (id) => {
+                const hoy = new Date();
+                if (hoy > FECHA_RETIRO) {
+                    setMensaje('Ya no se pueden revocar inscripciones después de la fecha del retiro.');
+                    setTimeout(() => setMensaje(''), 4000);
+                    return;
+                }
+
+                if (window.confirm('¿Estás seguro de que deseas revocar esta inscripción?')) {
+                    if (typeof window.storage !== 'undefined') {
+                        window.storage.delete(`inscripto:${id}`)
+                            .then(() => {
+                                setInscriptos(inscriptos.filter(i => i.id !== id));
+                                setMensaje('Inscripción revocada exitosamente');
+                                setTimeout(() => setMensaje(''), 3000);
+                            })
+                            .catch(() => {
+                                setMensaje('Error al revocar la inscripción');
+                            });
+                    } else {
+                        const nuevaLista = inscriptos.filter(i => i.id !== id);
+                        setInscriptos(nuevaLista);
+                        localStorage.setItem('inscriptos', JSON.stringify(nuevaLista));
+                        setMensaje('Inscripción revocada exitosamente');
+                        setTimeout(() => setMensaje(''), 3000);
+                    }
+                }
+            };
+
+            const exportarCSV = () => {
+                const headers = ['Nombre', 'Apellido', 'Edad', 'Ciudad', 'Teléfono', 'Fecha de Inscripción'];
+                const rows = inscriptos.map(i => [i.nombre, i.apellido, i.edad, i.ciudad, i.telefono, i.fecha]);
+                
+                let csv = headers.join(',') + '\n';
+                rows.forEach(row => {
+                    csv += row.map(cell => `"${cell}"`).join(',') + '\n';
+                });
+
+                const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+                const link = document.createElement('a');
+                link.href = URL.createObjectURL(blob);
+                link.download = `inscriptos-retiro-${new Date().toLocaleDateString('es-AR')}.csv`;
+                link.click();
+            };
+
+            const generarQR = () => {
+                const url = window.location.href;
+                return `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(url)}`;
+            };
+
+            const descargarQR = () => {
+                const link = document.createElement('a');
+                link.href = generarQR();
+                link.download = 'qr-inscripcion-retiro.png';
+                link.click();
+            };
+
+            return h('div', { className: 'min-h-screen bg-gradient-to-br from-purple-50 via-blue-50 to-indigo-100 p-4' },
+                h('div', { className: 'max-w-4xl mx-auto' },
+                    h('div', { className: 'bg-white rounded-2xl shadow-xl overflow-hidden' },
+                        // Header
+                        h('div', { className: 'bg-gradient-to-r from-purple-600 to-indigo-600 p-6 text-white' },
+                            h('h1', { className: 'text-3xl font-bold text-center mb-2' }, 'Un Encuentro con Dios'),
+                            h('p', { className: 'text-center text-purple-100 text-lg' }, 'Retiro Espiritual'),
+                            h('p', { className: 'text-center text-purple-200 mt-2' }, '📅 2 de Noviembre, 2025 • 📍 María Grande')
+                        ),
+
+                        // Navegación
+                        h('div', { className: 'flex border-b' },
+                            h('button', {
+                                onClick: () => setVista('formulario'),
+                                className: `flex-1 py-4 px-6 font-semibold transition-colors flex items-center justify-center gap-2 ${vista === 'formulario' ? 'bg-purple-50 text-purple-700 border-b-2 border-purple-600' : 'text-gray-600 hover:bg-gray-50'}`
+                            }, h(Icons.UserPlus), 'Formulario'),
+                            
+                            !esAdmin ? h('button', {
+                                onClick: () => setVista('admin'),
+                                className: `flex-1 py-4 px-6 font-semibold transition-colors flex items-center justify-center gap-2 ${vista === 'admin' ? 'bg-purple-50 text-purple-700 border-b-2 border-purple-600' : 'text-gray-600 hover:bg-gray-50'}`
+                            }, h(Icons.Users), 'Administrador') : [
+                                h('button', {
+                                    key: 'inscriptos',
+                                    onClick: () => setVista('inscriptos'),
+                                    className: `flex-1 py-4 px-6 font-semibold transition-colors flex items-center justify-center gap-2 ${vista === 'inscriptos' ? 'bg-purple-50 text-purple-700 border-b-2 border-purple-600' : 'text-gray-600 hover:bg-gray-50'}`
+                                }, h(Icons.Users), `Inscriptos (${inscriptos.length})`),
+                                h('button', {
+                                    key: 'qr',
+                                    onClick: () => setVista('qr'),
+                                    className: `flex-1 py-4 px-6 font-semibold transition-colors flex items-center justify-center gap-2 ${vista === 'qr' ? 'bg-purple-50 text-purple-700 border-b-2 border-purple-600' : 'text-gray-600 hover:bg-gray-50'}`
+                                }, h(Icons.QrCode), 'Código QR')
+                            ]
+                        ),
+
+                        // Contenido
+                        h('div', { className: 'p-6' },
+                            // Vista Admin Login
+                            vista === 'admin' && !esAdmin && h('div', { className: 'max-w-md mx-auto' },
+                                h('h2', { className: 'text-2xl font-bold text-gray-800 mb-6 text-center' }, 'Acceso Administrador'),
+                                mensaje && h('div', { className: 'mb-6 p-4 bg-red-50 border border-red-200 rounded-lg text-red-800 text-center' }, mensaje),
+                                h('div', { className: 'bg-purple-50 p-6 rounded-xl' },
+                                    h('label', { className: 'block text-sm font-semibold text-gray-700 mb-3' }, 'Ingresa la clave de administrador:'),
+                                    h('input', {
+                                        type: 'password',
+                                        value: claveIngresada,
+                                        onChange: (e) => setClaveIngresada(e.target.value),
+                                        onKeyPress: (e) => e.key === 'Enter' && verificarClave(),
+                                        className: 'w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition mb-4',
+                                        placeholder: 'Clave de acceso'
+                                    }),
+                                    h('button', {
+                                        onClick: verificarClave,
+                                        className: 'w-full bg-gradient-to-r from-purple-600 to-indigo-600 text-white py-3 rounded-lg font-bold hover:from-purple-700 hover:to-indigo-700 transition-all'
+                                    }, 'Ingresar')
+                                ),
+                                h('div', { className: 'mt-6 p-4 bg-blue-50 rounded-lg text-sm text-blue-700' },
+                                    h('p', { className: 'font-semibold mb-1' }, 'ℹ️ Información'),
+                                    h('p', {}, 'Solo los administradores pueden ver el listado de inscriptos y el código QR.')
+                                )
+                            ),
+
+                            // Vista Formulario
+                            vista === 'formulario' && h('div', { className: 'max-w-2xl mx-auto' },
+                                h('h2', { className: 'text-2xl font-bold text-gray-800 mb-2' }, 'Inscripción al Retiro'),
+                                h('p', { className: 'text-gray-600 mb-6' }, 'Completa tus datos para confirmar tu participación en "Un Encuentro con Dios"'),
+                                mensaje && h('div', { className: 'mb-6 p-4 bg-green-50 border border-green-200 rounded-lg flex items-center gap-3 text-green-800' },
+                                    h(Icons.CheckCircle),
+                                    h('span', { className: 'font-semibold' }, mensaje)
+                                ),
+                                h('div', { className: 'space-y-5' },
+                                    h('div', { className: 'grid grid-cols-1 md:grid-cols-2 gap-5' },
+                                        h('div', {},
+                                            h('label', { className: 'block text-sm font-semibold text-gray-700 mb-2' }, 'Nombre *'),
+                                            h('input', {
+                                                type: 'text',
+                                                name: 'nombre',
+                                                value: formData.nombre,
+                                                onChange: handleChange,
+                                                className: 'w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition',
+                                                placeholder: 'Tu nombre'
+                                            })
+                                        ),
+                                        h('div', {},
+                                            h('label', { className: 'block text-sm font-semibold text-gray-700 mb-2' }, 'Apellido *'),
+                                            h('input', {
+                                                type: 'text',
+                                                name: 'apellido',
+                                                value: formData.apellido,
+                                                onChange: handleChange,
+                                                className: 'w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition',
+                                                placeholder: 'Tu apellido'
+                                            })
+                                        )
+                                )
+                            )
+                        )
+                    )
+                )
+            );
+        }
+
+        // Cargar React desde CDN
+        const script = document.createElement('script');
+        script.src = 'https://unpkg.com/react@18/umd/react.production.min.js';
+        script.crossOrigin = 'anonymous';
+        document.head.appendChild(script);
+
+        const scriptDOM = document.createElement('script');
+        scriptDOM.src = 'https://unpkg.com/react-dom@18/umd/react-dom.production.min.js';
+        scriptDOM.crossOrigin = 'anonymous';
+        document.head.appendChild(scriptDOM);
+
+        scriptDOM.onload = () => {
+            const root = ReactDOM.createRoot(document.getElementById('app'));
+            root.render(React.createElement(App));
+        };
+    </script>
+</body>
+</html>    ),
+                                    h('div', { className: 'grid grid-cols-1 md:grid-cols-2 gap-5' },
+                                        h('div', {},
+                                            h('label', { className: 'block text-sm font-semibold text-gray-700 mb-2' }, 'Edad *'),
+                                            h('input', {
+                                                type: 'number',
+                                                name: 'edad',
+                                                value: formData.edad,
+                                                onChange: handleChange,
+                                                min: '1',
+                                                max: '120',
+                                                className: 'w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition',
+                                                placeholder: 'Tu edad'
+                                            })
+                                        ),
+                                        h('div', {},
+                                            h('label', { className: 'block text-sm font-semibold text-gray-700 mb-2' }, 'Ciudad *'),
+                                            h('select', {
+                                                name: 'ciudad',
+                                                value: formData.ciudad,
+                                                onChange: handleChange,
+                                                className: 'w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition bg-white'
+                                            },
+                                                h('option', { value: '' }, 'Selecciona tu ciudad'),
+                                                ...CIUDADES.map(ciudad => h('option', { key: ciudad, value: ciudad }, ciudad))
+                                            )
+                                        )
+                                    ),
+                                    h('div', {},
+                                        h('label', { className: 'block text-sm font-semibold text-gray-700 mb-2' }, 'Teléfono de Contacto *'),
+                                        h('input', {
+                                            type: 'tel',
+                                            name: 'telefono',
+                                            value: formData.telefono,
+                                            onChange: handleChange,
+                                            className: 'w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition',
+                                            placeholder: '+54 9 343 123-4567'
+                                        })
+                                    ),
+                                    h('button', {
+                                        onClick: handleSubmit,
+                                        className: 'w-full bg-gradient-to-r from-purple-600 to-indigo-600 text-white py-4 rounded-lg font-bold text-lg hover:from-purple-700 hover:to-indigo-700 transition-all shadow-lg hover:shadow-xl'
+                                    }, 'Confirmar Inscripción')
+                                )
+                            ),
+
+                            // Vista Inscriptos
+                            vista === 'inscriptos' && esAdmin && h('div', {},
+                                h('div', { className: 'flex justify-between items-center mb-6' },
+                                    h('h2', { className: 'text-2xl font-bold text-gray-800' }, `Lista de Inscriptos (${inscriptos.length})`),
+                                    h('div', { className: 'flex gap-3' },
+                                        inscriptos.length > 0 && h('button', {
+                                            onClick: exportarCSV,
+                                            className: 'flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition'
+                                        }, h(Icons.Download), 'Exportar CSV'),
+                                        h('button', {
+                                            onClick: cerrarSesionAdmin,
+                                            className: 'bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700 transition'
+                                        }, 'Cerrar Sesión')
+                                    )
+                                ),
+                                inscriptos.length === 0 ? h('div', { className: 'text-center py-12 text-gray-500' },
+                                    h(Icons.Users, { style: { width: 48, height: 48, margin: '0 auto 16px', color: '#9ca3af' } }),
+                                    h('p', { className: 'text-lg' }, 'Aún no hay inscriptos registrados')
+                                ) : h('div', { className: 'overflow-x-auto' },
+                                    h('table', { className: 'w-full' },
+                                        h('thead', {},
+                                            h('tr', { className: 'bg-purple-50' },
+                                                h('th', { className: 'px-4 py-3 text-left text-sm font-semibold text-gray-700' }, 'Nombre'),
+                                                h('th', { className: 'px-4 py-3 text-left text-sm font-semibold text-gray-700' }, 'Apellido'),
+                                                h('th', { className: 'px-4 py-3 text-left text-sm font-semibold text-gray-700' }, 'Edad'),
+                                                h('th', { className: 'px-4 py-3 text-left text-sm font-semibold text-gray-700' }, 'Ciudad'),
+                                                h('th', { className: 'px-4 py-3 text-left text-sm font-semibold text-gray-700' }, 'Teléfono'),
+                                                h('th', { className: 'px-4 py-3 text-left text-sm font-semibold text-gray-700' }, 'Fecha'),
+                                                h('th', { className: 'px-4 py-3 text-left text-sm font-semibold text-gray-700' }, 'Acciones')
+                                            )
+                                        ),
+                                        h('tbody', {},
+                                            ...inscriptos.map((inscripto, index) =>
+                                                h('tr', { key: inscripto.id, className: index % 2 === 0 ? 'bg-white' : 'bg-gray-50' },
+                                                    h('td', { className: 'px-4 py-3 text-sm text-gray-800' }, inscripto.nombre),
+                                                    h('td', { className: 'px-4 py-3 text-sm text-gray-800' }, inscripto.apellido),
+                                                    h('td', { className: 'px-4 py-3 text-sm text-gray-800' }, inscripto.edad),
+                                                    h('td', { className: 'px-4 py-3 text-sm text-gray-800' }, inscripto.ciudad),
+                                                    h('td', { className: 'px-4 py-3 text-sm text-gray-800' }, inscripto.telefono),
+                                                    h('td', { className: 'px-4 py-3 text-sm text-gray-600' }, inscripto.fecha),
+                                                    h('td', { className: 'px-4 py-3 text-sm' },
+                                                        new Date() <= FECHA_RETIRO && h('button', {
+                                                            onClick: () => revocarInscripcion(inscripto.id),
+                                                            className: 'bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600 transition text-xs font-semibold'
+                                                        }, 'Revocar')
+                                                    )
+                                                )
+                                            )
+                                        )
+                                    )
+                                )
+                            ),
+
+                            // Vista QR
+                            vista === 'qr' && esAdmin && h('div', { className: 'max-w-md mx-auto text-center' },
+                                h('div', { className: 'flex justify-between items-center mb-6' },
+                                    h('h2', { className: 'text-2xl font-bold text-gray-800' }, 'Código QR de Inscripción'),
+                                    h('button', {
+                                        onClick: cerrarSesionAdmin,
+                                        className: 'bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700 transition text-sm'
+                                    }, 'Cerrar Sesión')
+                                ),
+                                h('p', { className: 'text-gray-600 mb-6' }, 'Comparte este código QR para que las personas puedan inscribirse fácilmente al retiro "Un Encuentro con Dios"'),
+                                h('div', { className: 'bg-white p-6 rounded-xl shadow-lg inline-block mb-6' },
+                                    h('img', { src: generarQR(), alt: 'Código QR de inscripción', className: 'w-64 h-64' })
+                                ),
+                                h('button', {
+                                    onClick: descargarQR,
+                                    className: 'flex items-center gap-2 bg-purple-600 text-white px-6 py-3 rounded-lg hover:bg-purple-700 transition mx-auto font-semibold'
+                                }, h(Icons.Download), 'Descargar Código QR'),
+                                h('div', { className: 'mt-8 p-4 bg-blue-50 rounded-lg text-left' },
+                                    h('p', { className: 'text-sm text-blue-800 font-semibold mb-2' }, '💡 Instrucciones:'),
+                                    h('ul', { className: 'text-sm text-blue-700 space-y-1' },
+                                        h('li', {}, '• Descarga el código QR'),
+                                        h('li', {}, '• Imprímelo o compártelo digitalmente'),
+                                        h('li', {}, '• Las personas pueden escanearlo con su celular'),
+                                        h('li', {}, '• Serán dirigidos directamente al formulario')
+                                    )

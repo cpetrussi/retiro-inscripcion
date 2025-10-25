@@ -5,15 +5,30 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Un Encuentro con Dios - Inscripción</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            background-image: url('imagen-retiro.jpg');
+            background-size: cover;
+            background-position: center;
+            background-attachment: fixed;
+        }
+        .content-overlay {
+            background: rgba(255, 255, 255, 0.95);
+        }
+    </style>
 </head>
-<body class="bg-gradient-to-br from-purple-50 via-blue-50 to-indigo-100 min-h-screen p-4">
+<body class="min-h-screen p-4">
     <div class="max-w-4xl mx-auto">
-        <div class="bg-white rounded-2xl shadow-xl overflow-hidden">
-            <!-- Header -->
+        <div class="bg-white rounded-2xl shadow-2xl overflow-hidden">
+            <!-- Header con Logo -->
             <div class="bg-gradient-to-r from-purple-600 to-indigo-600 p-6 text-white">
-                <h1 class="text-3xl font-bold text-center mb-2">Un Encuentro con Dios</h1>
+                <div class="flex items-center justify-center gap-4 mb-3">
+                    <img src="logo-iglesia.png" alt="Logo Iglesia" class="h-16 w-16 object-contain bg-white rounded-full p-1">
+                    <h1 class="text-3xl font-bold text-center">Un Encuentro con Dios</h1>
+                </div>
                 <p class="text-center text-purple-100 text-lg">Retiro Espiritual</p>
-                <p class="text-center text-purple-200 mt-2">📅 2 de Noviembre, 2025 • 📍 María Grande</p>
+                <p class="text-center text-purple-200 mt-2">📅 Domingo 2 de Noviembre, 2025 - 9:30 hs</p>
+                <p class="text-center text-purple-200">📍 Terminal de Ómnibus de María Grande</p>
             </div>
 
             <!-- Navegación -->
@@ -27,7 +42,7 @@
             </div>
 
             <!-- Contenido -->
-            <div class="p-6">
+            <div class="p-6 content-overlay">
                 <!-- Vista Formulario -->
                 <div id="vista-formulario">
                     <div class="max-w-2xl mx-auto">
@@ -164,7 +179,7 @@
     <!-- Firebase SDK -->
     <script type="module">
         import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
-        import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc, onSnapshot, query, orderBy } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
+        import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc, onSnapshot, query, orderBy, where } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
         import { getMessaging, getToken, onMessage } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-messaging.js';
 
         const firebaseConfig = {
@@ -187,10 +202,10 @@
 
         window.mostrarMensaje = function(id, texto, tipo) {
             const elemento = document.getElementById(id);
-            elemento.textContent = texto;
-            elemento.className = `mb-6 p-4 rounded-lg ${tipo === 'error' ? 'bg-red-50 border border-red-200 text-red-800' : 'bg-green-50 border border-green-200 text-green-800'}`;
+            elemento.innerHTML = texto;
+            elemento.className = `mb-6 p-4 rounded-lg ${tipo === 'error' ? 'bg-red-50 border border-red-200 text-red-800' : tipo === 'warning' ? 'bg-blue-50 border border-blue-200 text-blue-800' : 'bg-green-50 border border-green-200 text-green-800'}`;
             elemento.classList.remove('hidden');
-            setTimeout(() => elemento.classList.add('hidden'), 3000);
+            setTimeout(() => elemento.classList.add('hidden'), 8000);
         };
 
         window.inscribir = async function() {
@@ -212,239 +227,4 @@
             }
 
             try {
-                await addDoc(collection(db, 'inscriptos'), {
-                    nombre,
-                    apellido,
-                    edad: parseInt(edad),
-                    ciudad,
-                    telefono,
-                    fecha: new Date().toISOString(),
-                    fechaFormateada: new Date().toLocaleString('es-AR')
-                });
-
-                mostrarMensaje('mensaje-form', '¡Inscripción realizada con éxito!', 'success');
-                
-                document.getElementById('nombre').value = '';
-                document.getElementById('apellido').value = '';
-                document.getElementById('edad').value = '';
-                document.getElementById('ciudad').value = '';
-                document.getElementById('telefono').value = '';
-            } catch (error) {
-                console.error('Error:', error);
-                mostrarMensaje('mensaje-form', 'Error al guardar la inscripción. Intenta nuevamente.', 'error');
-            }
-        };
-
-        window.verificarClave = function() {
-            const clave = document.getElementById('clave-admin').value;
-            if (clave === CLAVE_ADMIN) {
-                esAdmin = true;
-                mostrarVistaAdmin();
-            } else {
-                mostrarMensaje('mensaje-admin', 'Clave incorrecta', 'error');
-            }
-        };
-
-        window.mostrarVistaAdmin = function() {
-            document.getElementById('vista-admin').classList.add('hidden');
-            
-            const navTabs = document.getElementById('nav-tabs');
-            if (!document.getElementById('tab-inscriptos')) {
-                navTabs.innerHTML = `
-                    <button onclick="mostrarVista('formulario')" id="tab-formulario" class="flex-1 py-4 px-6 font-semibold transition-colors text-gray-600 hover:bg-gray-50">Formulario</button>
-                    <button onclick="mostrarVista('inscriptos')" id="tab-inscriptos" class="flex-1 py-4 px-6 font-semibold transition-colors bg-purple-50 text-purple-700 border-b-2 border-purple-600">Inscriptos</button>
-                    <button onclick="mostrarVista('qr')" id="tab-qr" class="flex-1 py-4 px-6 font-semibold transition-colors text-gray-600 hover:bg-gray-50">Código QR</button>
-                `;
-            }
-            
-            mostrarVista('inscriptos');
-        };
-
-        window.mostrarVista = function(vista) {
-            document.getElementById('vista-formulario').classList.add('hidden');
-            document.getElementById('vista-admin').classList.add('hidden');
-            document.getElementById('vista-inscriptos').classList.add('hidden');
-            document.getElementById('vista-qr').classList.add('hidden');
-
-            document.querySelectorAll('#nav-tabs button').forEach(btn => {
-                btn.className = 'flex-1 py-4 px-6 font-semibold transition-colors text-gray-600 hover:bg-gray-50';
-            });
-
-            if (vista === 'formulario') {
-                document.getElementById('vista-formulario').classList.remove('hidden');
-                document.getElementById('tab-formulario')?.classList.add('bg-purple-50', 'text-purple-700', 'border-b-2', 'border-purple-600');
-            } else if (vista === 'admin') {
-                if (!esAdmin) {
-                    document.getElementById('vista-admin').classList.remove('hidden');
-                    document.getElementById('tab-admin')?.classList.add('bg-purple-50', 'text-purple-700', 'border-b-2', 'border-purple-600');
-                }
-            } else if (vista === 'inscriptos' && esAdmin) {
-                document.getElementById('vista-inscriptos').classList.remove('hidden');
-                document.getElementById('tab-inscriptos')?.classList.add('bg-purple-50', 'text-purple-700', 'border-b-2', 'border-purple-600');
-                cargarTablaInscriptos();
-            } else if (vista === 'qr' && esAdmin) {
-                document.getElementById('vista-qr').classList.remove('hidden');
-                document.getElementById('tab-qr')?.classList.add('bg-purple-50', 'text-purple-700', 'border-b-2', 'border-purple-600');
-                generarQR();
-            }
-        };
-
-        window.cargarTablaInscriptos = async function() {
-            if (unsubscribe) unsubscribe();
-
-            const q = query(collection(db, 'inscriptos'), orderBy('fecha', 'desc'));
-            
-            unsubscribe = onSnapshot(q, (snapshot) => {
-                const inscriptos = [];
-                snapshot.forEach((doc) => {
-                    inscriptos.push({ id: doc.id, ...doc.data() });
-                });
-
-                document.getElementById('contador-inscriptos').textContent = inscriptos.length;
-                const tabla = document.getElementById('tabla-inscriptos');
-                
-                if (inscriptos.length === 0) {
-                    tabla.innerHTML = '<div class="text-center py-12 text-gray-500"><p class="text-lg">Aún no hay inscriptos registrados</p></div>';
-                    return;
-                }
-
-                const hoy = new Date();
-                const puedeRevocar = hoy <= FECHA_RETIRO;
-
-                let html = '<div class="overflow-x-auto"><table class="w-full"><thead><tr class="bg-purple-50">';
-                html += '<th class="px-4 py-3 text-left text-sm font-semibold text-gray-700">Nombre</th>';
-                html += '<th class="px-4 py-3 text-left text-sm font-semibold text-gray-700">Apellido</th>';
-                html += '<th class="px-4 py-3 text-left text-sm font-semibold text-gray-700">Edad</th>';
-                html += '<th class="px-4 py-3 text-left text-sm font-semibold text-gray-700">Ciudad</th>';
-                html += '<th class="px-4 py-3 text-left text-sm font-semibold text-gray-700">Teléfono</th>';
-                html += '<th class="px-4 py-3 text-left text-sm font-semibold text-gray-700">Fecha</th>';
-                if (puedeRevocar) html += '<th class="px-4 py-3 text-left text-sm font-semibold text-gray-700">Acciones</th>';
-                html += '</tr></thead><tbody>';
-
-                inscriptos.forEach((inscripto, index) => {
-                    const bgClass = index % 2 === 0 ? 'bg-white' : 'bg-gray-50';
-                    html += `<tr class="${bgClass}">`;
-                    html += `<td class="px-4 py-3 text-sm text-gray-800">${inscripto.nombre}</td>`;
-                    html += `<td class="px-4 py-3 text-sm text-gray-800">${inscripto.apellido}</td>`;
-                    html += `<td class="px-4 py-3 text-sm text-gray-800">${inscripto.edad}</td>`;
-                    html += `<td class="px-4 py-3 text-sm text-gray-800">${inscripto.ciudad}</td>`;
-                    html += `<td class="px-4 py-3 text-sm text-gray-800">${inscripto.telefono}</td>`;
-                    html += `<td class="px-4 py-3 text-sm text-gray-600">${inscripto.fechaFormateada}</td>`;
-                    if (puedeRevocar) {
-                        html += `<td class="px-4 py-3 text-sm"><button onclick="revocarInscripcion('${inscripto.id}')" class="bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600 transition text-xs font-semibold">Revocar</button></td>`;
-                    }
-                    html += '</tr>';
-                });
-
-                html += '</tbody></table></div>';
-                tabla.innerHTML = html;
-            });
-        };
-
-        window.revocarInscripcion = async function(id) {
-            if (confirm('¿Estás seguro de que deseas revocar esta inscripción?')) {
-                try {
-                    await deleteDoc(doc(db, 'inscriptos', id));
-                } catch (error) {
-                    console.error('Error:', error);
-                    alert('Error al revocar la inscripción');
-                }
-            }
-        };
-
-        window.exportarCSV = async function() {
-            try {
-                const snapshot = await getDocs(collection(db, 'inscriptos'));
-                if (snapshot.empty) return;
-
-                let csv = 'Nombre,Apellido,Edad,Ciudad,Teléfono,Fecha de Inscripción\n';
-                snapshot.forEach(doc => {
-                    const i = doc.data();
-                    csv += `"${i.nombre}","${i.apellido}","${i.edad}","${i.ciudad}","${i.telefono}","${i.fechaFormateada}"\n`;
-                });
-
-                const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-                const link = document.createElement('a');
-                link.href = URL.createObjectURL(blob);
-                link.download = `inscriptos-retiro-${new Date().toLocaleDateString('es-AR')}.csv`;
-                link.click();
-            } catch (error) {
-                console.error('Error:', error);
-            }
-        };
-
-        window.generarQR = function() {
-            const url = window.location.href.split('?')[0];
-            const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(url)}`;
-            document.getElementById('img-qr').src = qrUrl;
-            document.getElementById('descargar-qr').href = qrUrl;
-        };
-
-        window.activarNotificaciones = async function() {
-            try {
-                const permission = await Notification.requestPermission();
-                
-                if (permission === 'granted') {
-                    const token = await getToken(messaging, {
-                        vapidKey: 'BF_5zMd-OWxxxpQpPIMvbfZ2ik2LhYmORmNivQnk4Ts4'
-                    });
-                    
-                    localStorage.setItem('fcmToken', token);
-                    
-                    const estadoDiv = document.getElementById('estado-notificaciones');
-                    estadoDiv.textContent = '✅ Notificaciones activadas correctamente. Recibirás una alerta cada vez que alguien se inscriba.';
-                    estadoDiv.className = 'mb-4 p-3 rounded-lg bg-green-50 text-green-800 text-sm';
-                    estadoDiv.classList.remove('hidden');
-                    
-                    document.getElementById('btn-notificaciones').textContent = '✅ Notificaciones Activas';
-                    document.getElementById('btn-notificaciones').disabled = true;
-                    document.getElementById('btn-notificaciones').className = 'flex items-center gap-2 bg-gray-400 text-white px-4 py-2 rounded-lg cursor-not-allowed text-sm';
-                } else {
-                    const estadoDiv = document.getElementById('estado-notificaciones');
-                    estadoDiv.textContent = '⚠️ Permiso denegado. No podrás recibir notificaciones.';
-                    estadoDiv.className = 'mb-4 p-3 rounded-lg bg-yellow-50 text-yellow-800 text-sm';
-                    estadoDiv.classList.remove('hidden');
-                }
-            } catch (error) {
-                console.error('Error al activar notificaciones:', error);
-                const estadoDiv = document.getElementById('estado-notificaciones');
-                estadoDiv.textContent = '❌ Error al activar notificaciones. Tu navegador puede no soportarlas.';
-                estadoDiv.className = 'mb-4 p-3 rounded-lg bg-red-50 text-red-800 text-sm';
-                estadoDiv.classList.remove('hidden');
-            }
-        };
-
-        onMessage(messaging, (payload) => {
-            console.log('Mensaje recibido:', payload);
-            if (Notification.permission === 'granted') {
-                new Notification(payload.notification.title, {
-                    body: payload.notification.body,
-                    icon: '/icon.png'
-                });
-            }
-        });
-
-        window.cerrarSesion = function() {
-            esAdmin = false;
-            if (unsubscribe) unsubscribe();
-            document.getElementById('clave-admin').value = '';
-            
-            const navTabs = document.getElementById('nav-tabs');
-            navTabs.innerHTML = `
-                <button onclick="mostrarVista('formulario')" id="tab-formulario" class="flex-1 py-4 px-6 font-semibold transition-colors bg-purple-50 text-purple-700 border-b-2 border-purple-600">Formulario</button>
-                <button onclick="mostrarVista('admin')" id="tab-admin" class="flex-1 py-4 px-6 font-semibold transition-colors text-gray-600 hover:bg-gray-50">Administrador</button>
-            `;
-            
-            mostrarVista('formulario');
-        };
-
-        window.onload = function() {
-            mostrarVista('formulario');
-            
-            if (localStorage.getItem('fcmToken')) {
-                console.log('Token FCM guardado:', localStorage.getItem('fcmToken'));
-            }
-        };
-    </script>
-</body>
-</html>
+                // Verificar si ya está inscri

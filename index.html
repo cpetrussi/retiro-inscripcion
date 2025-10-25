@@ -97,22 +97,32 @@
                             <p class="font-semibold mb-1">ℹ️ Información</p>
                             <p>Solo los administradores pueden ver el listado de inscriptos y el código QR.</p>
                         </div>
+
+                        <div class="mt-4 p-4 bg-green-50 rounded-lg text-sm text-green-700">
+                            <p class="font-semibold mb-1">🔔 Notificaciones</p>
+                            <p class="mb-2">Una vez que inicies sesión, podrás activar las notificaciones push para recibir alertas cuando alguien se inscriba.</p>
+                        </div>
                     </div>
                 </div>
 
                 <!-- Vista Inscriptos (Admin) -->
                 <div id="vista-inscriptos" class="hidden">
-                    <div class="flex justify-between items-center mb-6">
+                    <div class="flex justify-between items-center mb-6 flex-wrap gap-3">
                         <h2 class="text-2xl font-bold text-gray-800">Lista de Inscriptos (<span id="contador-inscriptos">0</span>)</h2>
-                        <div class="flex gap-3">
-                            <button onclick="exportarCSV()" class="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition">
+                        <div class="flex gap-3 flex-wrap">
+                            <button onclick="activarNotificaciones()" id="btn-notificaciones" class="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition text-sm">
+                                🔔 Activar Notificaciones
+                            </button>
+                            <button onclick="exportarCSV()" class="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition text-sm">
                                 Exportar CSV
                             </button>
-                            <button onclick="cerrarSesion()" class="bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700 transition">
+                            <button onclick="cerrarSesion()" class="bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700 transition text-sm">
                                 Cerrar Sesión
                             </button>
                         </div>
                     </div>
+
+                    <div id="estado-notificaciones" class="mb-4 p-3 rounded-lg hidden text-sm"></div>
 
                     <div id="tabla-inscriptos"></div>
                 </div>
@@ -151,33 +161,39 @@
         </div>
     </div>
 
-    <script>
+    <!-- Firebase SDK -->
+    <script type="module">
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
+        import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc, onSnapshot, query, orderBy } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
+        import { getMessaging, getToken, onMessage } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-messaging.js';
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyAlwzfCECuWObnXqvBT-6ED8UykFnNZXlE",
+            authDomain: "retiro-inscripcion.firebaseapp.com",
+            projectId: "retiro-inscripcion",
+            storageBucket: "retiro-inscripcion.firebasestorage.app",
+            messagingSenderId: "1052656436137",
+            appId: "1:1052656436137:web:53a80f46715a5e3e027ab8"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        const messaging = getMessaging(app);
+
         const CLAVE_ADMIN = 'retiro2025';
         const FECHA_RETIRO = new Date('2025-11-02');
         let esAdmin = false;
+        let unsubscribe = null;
 
-        // Cargar inscriptos desde localStorage
-        function cargarInscriptos() {
-            const inscriptos = localStorage.getItem('inscriptos');
-            return inscriptos ? JSON.parse(inscriptos) : [];
-        }
-
-        // Guardar inscriptos en localStorage
-        function guardarInscriptos(inscriptos) {
-            localStorage.setItem('inscriptos', JSON.stringify(inscriptos));
-        }
-
-        // Mostrar mensaje
-        function mostrarMensaje(id, texto, tipo) {
+        window.mostrarMensaje = function(id, texto, tipo) {
             const elemento = document.getElementById(id);
             elemento.textContent = texto;
             elemento.className = `mb-6 p-4 rounded-lg ${tipo === 'error' ? 'bg-red-50 border border-red-200 text-red-800' : 'bg-green-50 border border-green-200 text-green-800'}`;
             elemento.classList.remove('hidden');
             setTimeout(() => elemento.classList.add('hidden'), 3000);
-        }
+        };
 
-        // Inscribir
-        function inscribir() {
+        window.inscribir = async function() {
             const nombre = document.getElementById('nombre').value.trim();
             const apellido = document.getElementById('apellido').value.trim();
             const edad = document.getElementById('edad').value.trim();
@@ -195,32 +211,31 @@
                 return;
             }
 
-            const inscriptos = cargarInscriptos();
-            const nuevoInscripto = {
-                id: Date.now(),
-                nombre,
-                apellido,
-                edad,
-                ciudad,
-                telefono,
-                fecha: new Date().toLocaleString('es-AR')
-            };
+            try {
+                await addDoc(collection(db, 'inscriptos'), {
+                    nombre,
+                    apellido,
+                    edad: parseInt(edad),
+                    ciudad,
+                    telefono,
+                    fecha: new Date().toISOString(),
+                    fechaFormateada: new Date().toLocaleString('es-AR')
+                });
 
-            inscriptos.push(nuevoInscripto);
-            guardarInscriptos(inscriptos);
+                mostrarMensaje('mensaje-form', '¡Inscripción realizada con éxito!', 'success');
+                
+                document.getElementById('nombre').value = '';
+                document.getElementById('apellido').value = '';
+                document.getElementById('edad').value = '';
+                document.getElementById('ciudad').value = '';
+                document.getElementById('telefono').value = '';
+            } catch (error) {
+                console.error('Error:', error);
+                mostrarMensaje('mensaje-form', 'Error al guardar la inscripción. Intenta nuevamente.', 'error');
+            }
+        };
 
-            mostrarMensaje('mensaje-form', '¡Inscripción realizada con éxito!', 'success');
-            
-            // Limpiar formulario
-            document.getElementById('nombre').value = '';
-            document.getElementById('apellido').value = '';
-            document.getElementById('edad').value = '';
-            document.getElementById('ciudad').value = '';
-            document.getElementById('telefono').value = '';
-        }
-
-        // Verificar clave admin
-        function verificarClave() {
+        window.verificarClave = function() {
             const clave = document.getElementById('clave-admin').value;
             if (clave === CLAVE_ADMIN) {
                 esAdmin = true;
@@ -228,14 +243,11 @@
             } else {
                 mostrarMensaje('mensaje-admin', 'Clave incorrecta', 'error');
             }
-        }
+        };
 
-        // Mostrar vista admin
-        function mostrarVistaAdmin() {
-            // Ocultar login y mostrar tabs admin
+        window.mostrarVistaAdmin = function() {
             document.getElementById('vista-admin').classList.add('hidden');
             
-            // Agregar tabs de inscriptos y QR
             const navTabs = document.getElementById('nav-tabs');
             if (!document.getElementById('tab-inscriptos')) {
                 navTabs.innerHTML = `
@@ -246,22 +258,18 @@
             }
             
             mostrarVista('inscriptos');
-        }
+        };
 
-        // Mostrar vista
-        function mostrarVista(vista) {
-            // Ocultar todas las vistas
+        window.mostrarVista = function(vista) {
             document.getElementById('vista-formulario').classList.add('hidden');
             document.getElementById('vista-admin').classList.add('hidden');
             document.getElementById('vista-inscriptos').classList.add('hidden');
             document.getElementById('vista-qr').classList.add('hidden');
 
-            // Actualizar tabs
             document.querySelectorAll('#nav-tabs button').forEach(btn => {
                 btn.className = 'flex-1 py-4 px-6 font-semibold transition-colors text-gray-600 hover:bg-gray-50';
             });
 
-            // Mostrar vista seleccionada
             if (vista === 'formulario') {
                 document.getElementById('vista-formulario').classList.remove('hidden');
                 document.getElementById('tab-formulario')?.classList.add('bg-purple-50', 'text-purple-700', 'border-b-2', 'border-purple-600');
@@ -279,93 +287,148 @@
                 document.getElementById('tab-qr')?.classList.add('bg-purple-50', 'text-purple-700', 'border-b-2', 'border-purple-600');
                 generarQR();
             }
-        }
+        };
 
-        // Cargar tabla de inscriptos
-        function cargarTablaInscriptos() {
-            const inscriptos = cargarInscriptos();
-            document.getElementById('contador-inscriptos').textContent = inscriptos.length;
+        window.cargarTablaInscriptos = async function() {
+            if (unsubscribe) unsubscribe();
 
-            const tabla = document.getElementById('tabla-inscriptos');
+            const q = query(collection(db, 'inscriptos'), orderBy('fecha', 'desc'));
             
-            if (inscriptos.length === 0) {
-                tabla.innerHTML = '<div class="text-center py-12 text-gray-500"><p class="text-lg">Aún no hay inscriptos registrados</p></div>';
-                return;
-            }
+            unsubscribe = onSnapshot(q, (snapshot) => {
+                const inscriptos = [];
+                snapshot.forEach((doc) => {
+                    inscriptos.push({ id: doc.id, ...doc.data() });
+                });
 
-            const hoy = new Date();
-            const puedeRevocar = hoy <= FECHA_RETIRO;
-
-            let html = '<div class="overflow-x-auto"><table class="w-full"><thead><tr class="bg-purple-50">';
-            html += '<th class="px-4 py-3 text-left text-sm font-semibold text-gray-700">Nombre</th>';
-            html += '<th class="px-4 py-3 text-left text-sm font-semibold text-gray-700">Apellido</th>';
-            html += '<th class="px-4 py-3 text-left text-sm font-semibold text-gray-700">Edad</th>';
-            html += '<th class="px-4 py-3 text-left text-sm font-semibold text-gray-700">Ciudad</th>';
-            html += '<th class="px-4 py-3 text-left text-sm font-semibold text-gray-700">Teléfono</th>';
-            html += '<th class="px-4 py-3 text-left text-sm font-semibold text-gray-700">Fecha</th>';
-            if (puedeRevocar) html += '<th class="px-4 py-3 text-left text-sm font-semibold text-gray-700">Acciones</th>';
-            html += '</tr></thead><tbody>';
-
-            inscriptos.forEach((inscripto, index) => {
-                const bgClass = index % 2 === 0 ? 'bg-white' : 'bg-gray-50';
-                html += `<tr class="${bgClass}">`;
-                html += `<td class="px-4 py-3 text-sm text-gray-800">${inscripto.nombre}</td>`;
-                html += `<td class="px-4 py-3 text-sm text-gray-800">${inscripto.apellido}</td>`;
-                html += `<td class="px-4 py-3 text-sm text-gray-800">${inscripto.edad}</td>`;
-                html += `<td class="px-4 py-3 text-sm text-gray-800">${inscripto.ciudad}</td>`;
-                html += `<td class="px-4 py-3 text-sm text-gray-800">${inscripto.telefono}</td>`;
-                html += `<td class="px-4 py-3 text-sm text-gray-600">${inscripto.fecha}</td>`;
-                if (puedeRevocar) {
-                    html += `<td class="px-4 py-3 text-sm"><button onclick="revocarInscripcion(${inscripto.id})" class="bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600 transition text-xs font-semibold">Revocar</button></td>`;
+                document.getElementById('contador-inscriptos').textContent = inscriptos.length;
+                const tabla = document.getElementById('tabla-inscriptos');
+                
+                if (inscriptos.length === 0) {
+                    tabla.innerHTML = '<div class="text-center py-12 text-gray-500"><p class="text-lg">Aún no hay inscriptos registrados</p></div>';
+                    return;
                 }
-                html += '</tr>';
+
+                const hoy = new Date();
+                const puedeRevocar = hoy <= FECHA_RETIRO;
+
+                let html = '<div class="overflow-x-auto"><table class="w-full"><thead><tr class="bg-purple-50">';
+                html += '<th class="px-4 py-3 text-left text-sm font-semibold text-gray-700">Nombre</th>';
+                html += '<th class="px-4 py-3 text-left text-sm font-semibold text-gray-700">Apellido</th>';
+                html += '<th class="px-4 py-3 text-left text-sm font-semibold text-gray-700">Edad</th>';
+                html += '<th class="px-4 py-3 text-left text-sm font-semibold text-gray-700">Ciudad</th>';
+                html += '<th class="px-4 py-3 text-left text-sm font-semibold text-gray-700">Teléfono</th>';
+                html += '<th class="px-4 py-3 text-left text-sm font-semibold text-gray-700">Fecha</th>';
+                if (puedeRevocar) html += '<th class="px-4 py-3 text-left text-sm font-semibold text-gray-700">Acciones</th>';
+                html += '</tr></thead><tbody>';
+
+                inscriptos.forEach((inscripto, index) => {
+                    const bgClass = index % 2 === 0 ? 'bg-white' : 'bg-gray-50';
+                    html += `<tr class="${bgClass}">`;
+                    html += `<td class="px-4 py-3 text-sm text-gray-800">${inscripto.nombre}</td>`;
+                    html += `<td class="px-4 py-3 text-sm text-gray-800">${inscripto.apellido}</td>`;
+                    html += `<td class="px-4 py-3 text-sm text-gray-800">${inscripto.edad}</td>`;
+                    html += `<td class="px-4 py-3 text-sm text-gray-800">${inscripto.ciudad}</td>`;
+                    html += `<td class="px-4 py-3 text-sm text-gray-800">${inscripto.telefono}</td>`;
+                    html += `<td class="px-4 py-3 text-sm text-gray-600">${inscripto.fechaFormateada}</td>`;
+                    if (puedeRevocar) {
+                        html += `<td class="px-4 py-3 text-sm"><button onclick="revocarInscripcion('${inscripto.id}')" class="bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600 transition text-xs font-semibold">Revocar</button></td>`;
+                    }
+                    html += '</tr>';
+                });
+
+                html += '</tbody></table></div>';
+                tabla.innerHTML = html;
             });
+        };
 
-            html += '</tbody></table></div>';
-            tabla.innerHTML = html;
-        }
-
-        // Revocar inscripción
-        function revocarInscripcion(id) {
+        window.revocarInscripcion = async function(id) {
             if (confirm('¿Estás seguro de que deseas revocar esta inscripción?')) {
-                let inscriptos = cargarInscriptos();
-                inscriptos = inscriptos.filter(i => i.id !== id);
-                guardarInscriptos(inscriptos);
-                cargarTablaInscriptos();
+                try {
+                    await deleteDoc(doc(db, 'inscriptos', id));
+                } catch (error) {
+                    console.error('Error:', error);
+                    alert('Error al revocar la inscripción');
+                }
             }
-        }
+        };
 
-        // Exportar CSV
-        function exportarCSV() {
-            const inscriptos = cargarInscriptos();
-            if (inscriptos.length === 0) return;
+        window.exportarCSV = async function() {
+            try {
+                const snapshot = await getDocs(collection(db, 'inscriptos'));
+                if (snapshot.empty) return;
 
-            let csv = 'Nombre,Apellido,Edad,Ciudad,Teléfono,Fecha de Inscripción\n';
-            inscriptos.forEach(i => {
-                csv += `"${i.nombre}","${i.apellido}","${i.edad}","${i.ciudad}","${i.telefono}","${i.fecha}"\n`;
-            });
+                let csv = 'Nombre,Apellido,Edad,Ciudad,Teléfono,Fecha de Inscripción\n';
+                snapshot.forEach(doc => {
+                    const i = doc.data();
+                    csv += `"${i.nombre}","${i.apellido}","${i.edad}","${i.ciudad}","${i.telefono}","${i.fechaFormateada}"\n`;
+                });
 
-            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-            const link = document.createElement('a');
-            link.href = URL.createObjectURL(blob);
-            link.download = `inscriptos-retiro-${new Date().toLocaleDateString('es-AR')}.csv`;
-            link.click();
-        }
+                const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+                const link = document.createElement('a');
+                link.href = URL.createObjectURL(blob);
+                link.download = `inscriptos-retiro-${new Date().toLocaleDateString('es-AR')}.csv`;
+                link.click();
+            } catch (error) {
+                console.error('Error:', error);
+            }
+        };
 
-        // Generar QR
-        function generarQR() {
+        window.generarQR = function() {
             const url = window.location.href.split('?')[0];
             const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(url)}`;
             document.getElementById('img-qr').src = qrUrl;
             document.getElementById('descargar-qr').href = qrUrl;
-        }
+        };
 
-        // Cerrar sesión admin
-        function cerrarSesion() {
+        window.activarNotificaciones = async function() {
+            try {
+                const permission = await Notification.requestPermission();
+                
+                if (permission === 'granted') {
+                    const token = await getToken(messaging, {
+                        vapidKey: 'BF_5zMd-OWxxxpQpPIMvbfZ2ik2LhYmORmNivQnk4Ts4'
+                    });
+                    
+                    localStorage.setItem('fcmToken', token);
+                    
+                    const estadoDiv = document.getElementById('estado-notificaciones');
+                    estadoDiv.textContent = '✅ Notificaciones activadas correctamente. Recibirás una alerta cada vez que alguien se inscriba.';
+                    estadoDiv.className = 'mb-4 p-3 rounded-lg bg-green-50 text-green-800 text-sm';
+                    estadoDiv.classList.remove('hidden');
+                    
+                    document.getElementById('btn-notificaciones').textContent = '✅ Notificaciones Activas';
+                    document.getElementById('btn-notificaciones').disabled = true;
+                    document.getElementById('btn-notificaciones').className = 'flex items-center gap-2 bg-gray-400 text-white px-4 py-2 rounded-lg cursor-not-allowed text-sm';
+                } else {
+                    const estadoDiv = document.getElementById('estado-notificaciones');
+                    estadoDiv.textContent = '⚠️ Permiso denegado. No podrás recibir notificaciones.';
+                    estadoDiv.className = 'mb-4 p-3 rounded-lg bg-yellow-50 text-yellow-800 text-sm';
+                    estadoDiv.classList.remove('hidden');
+                }
+            } catch (error) {
+                console.error('Error al activar notificaciones:', error);
+                const estadoDiv = document.getElementById('estado-notificaciones');
+                estadoDiv.textContent = '❌ Error al activar notificaciones. Tu navegador puede no soportarlas.';
+                estadoDiv.className = 'mb-4 p-3 rounded-lg bg-red-50 text-red-800 text-sm';
+                estadoDiv.classList.remove('hidden');
+            }
+        };
+
+        onMessage(messaging, (payload) => {
+            console.log('Mensaje recibido:', payload);
+            if (Notification.permission === 'granted') {
+                new Notification(payload.notification.title, {
+                    body: payload.notification.body,
+                    icon: '/icon.png'
+                });
+            }
+        });
+
+        window.cerrarSesion = function() {
             esAdmin = false;
+            if (unsubscribe) unsubscribe();
             document.getElementById('clave-admin').value = '';
             
-            // Restaurar tabs originales
             const navTabs = document.getElementById('nav-tabs');
             navTabs.innerHTML = `
                 <button onclick="mostrarVista('formulario')" id="tab-formulario" class="flex-1 py-4 px-6 font-semibold transition-colors bg-purple-50 text-purple-700 border-b-2 border-purple-600">Formulario</button>
@@ -373,11 +436,14 @@
             `;
             
             mostrarVista('formulario');
-        }
+        };
 
-        // Inicializar
         window.onload = function() {
             mostrarVista('formulario');
+            
+            if (localStorage.getItem('fcmToken')) {
+                console.log('Token FCM guardado:', localStorage.getItem('fcmToken'));
+            }
         };
     </script>
 </body>

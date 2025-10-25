@@ -503,3 +503,15 @@
             `;
             
             mostrarVista('formulario');
+        };
+
+        window.onload = function() {
+            mostrarVista('formulario');
+            
+            if (localStorage.getItem('fcmToken')) {
+                console.log('Token FCM guardado:', localStorage.getItem('fcmToken'));
+            }
+        };
+    </script>
+</body>
+</html>;

@@ -7,13 +7,18 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         body {
-            background-image: url('imagen-retiro.png');
+            background-image: url('imagen-retiro.jpg');
             background-size: cover;
             background-position: center;
             background-attachment: fixed;
         }
         .content-overlay {
-            background: rgba(255, 255, 255, 0.95);
+            background: rgba(255, 255, 255, 0.85);
+            backdrop-filter: blur(5px);
+        }
+        .formulario-transparente {
+            background: rgba(255, 255, 255, 0.75);
+            backdrop-filter: blur(8px);
         }
     </style>
 </head>
@@ -42,7 +47,7 @@
             </div>
 
             <!-- Contenido -->
-            <div class="p-6 content-overlay">
+            <div class="p-6 formulario-transparente">
                 <!-- Vista Formulario -->
                 <div id="vista-formulario">
                     <div class="max-w-2xl mx-auto">
@@ -191,9 +196,15 @@
             appId: "1:1052656436137:web:53a80f46715a5e3e027ab8"
         };
 
-        const app = initializeApp(firebaseConfig);
-        const db = getFirestore(app);
-        const messaging = getMessaging(app);
+        let app, db, messaging;
+        
+        try {
+            app = initializeApp(firebaseConfig);
+            db = getFirestore(app);
+            messaging = getMessaging(app);
+        } catch (error) {
+            console.log('Firebase inicializado parcialmente:', error);
+        }
 
         const CLAVE_ADMIN = 'retiro2025';
         const FECHA_RETIRO = new Date('2025-11-02');
@@ -227,4 +238,268 @@
             }
 
             try {
-                // Verificar si ya está inscri
+                // Verificar si ya está inscripto
+                const q = query(
+                    collection(db, 'inscriptos'),
+                    where('nombre', '==', nombre),
+                    where('apellido', '==', apellido),
+                    where('telefono', '==', telefono)
+                );
+                
+                const querySnapshot = await getDocs(q);
+                
+                if (!querySnapshot.empty) {
+                    // Ya está inscripto
+                    mostrarMensaje('mensaje-form', 
+                        `<div class="text-center">
+                            <p class="text-xl font-bold mb-3">¡Ya estás inscripto!</p>
+                            <p class="text-lg mb-2">Te esperamos el domingo 2 de noviembre a las 9:30 hs.</p>
+                            <p class="text-lg font-semibold">📍 Terminal de Ómnibus de María Grande</p>
+                        </div>`, 
+                        'warning'
+                    );
+                    return;
+                }
+
+                // Si no está inscripto, agregarlo
+                await addDoc(collection(db, 'inscriptos'), {
+                    nombre,
+                    apellido,
+                    edad: parseInt(edad),
+                    ciudad,
+                    telefono,
+                    fecha: new Date().toISOString(),
+                    fechaFormateada: new Date().toLocaleString('es-AR')
+                });
+
+                mostrarMensaje('mensaje-form', 
+                    `<div class="text-center">
+                        <p class="text-xl font-bold mb-3">¡Inscripción realizada con éxito!</p>
+                        <p class="text-lg mb-2">Te esperamos el domingo 2 de noviembre a las 9:30 hs.</p>
+                        <p class="text-lg font-semibold">📍 Terminal de Ómnibus de María Grande</p>
+                    </div>`, 
+                    'success'
+                );
+                
+                document.getElementById('nombre').value = '';
+                document.getElementById('apellido').value = '';
+                document.getElementById('edad').value = '';
+                document.getElementById('ciudad').value = '';
+                document.getElementById('telefono').value = '';
+            } catch (error) {
+                console.error('Error:', error);
+                mostrarMensaje('mensaje-form', 'Error al guardar la inscripción. Intenta nuevamente.', 'error');
+            }
+        };
+
+        window.verificarClave = function() {
+            const clave = document.getElementById('clave-admin').value;
+            if (clave === CLAVE_ADMIN) {
+                esAdmin = true;
+                mostrarVistaAdmin();
+            } else {
+                mostrarMensaje('mensaje-admin', 'Clave incorrecta', 'error');
+            }
+        };
+
+        window.mostrarVistaAdmin = function() {
+            document.getElementById('vista-admin').classList.add('hidden');
+            
+            const navTabs = document.getElementById('nav-tabs');
+            if (!document.getElementById('tab-inscriptos')) {
+                navTabs.innerHTML = `
+                    <button onclick="mostrarVista('formulario')" id="tab-formulario" class="flex-1 py-4 px-6 font-semibold transition-colors text-gray-600 hover:bg-gray-50">Formulario</button>
+                    <button onclick="mostrarVista('inscriptos')" id="tab-inscriptos" class="flex-1 py-4 px-6 font-semibold transition-colors bg-purple-50 text-purple-700 border-b-2 border-purple-600">Inscriptos</button>
+                    <button onclick="mostrarVista('qr')" id="tab-qr" class="flex-1 py-4 px-6 font-semibold transition-colors text-gray-600 hover:bg-gray-50">Código QR</button>
+                `;
+            }
+            
+            mostrarVista('inscriptos');
+        };
+
+        window.mostrarVista = function(vista) {
+            document.getElementById('vista-formulario').classList.add('hidden');
+            document.getElementById('vista-admin').classList.add('hidden');
+            document.getElementById('vista-inscriptos').classList.add('hidden');
+            document.getElementById('vista-qr').classList.add('hidden');
+
+            document.querySelectorAll('#nav-tabs button').forEach(btn => {
+                btn.className = 'flex-1 py-4 px-6 font-semibold transition-colors text-gray-600 hover:bg-gray-50';
+            });
+
+            if (vista === 'formulario') {
+                document.getElementById('vista-formulario').classList.remove('hidden');
+                document.getElementById('tab-formulario')?.classList.add('bg-purple-50', 'text-purple-700', 'border-b-2', 'border-purple-600');
+            } else if (vista === 'admin') {
+                if (!esAdmin) {
+                    document.getElementById('vista-admin').classList.remove('hidden');
+                    document.getElementById('tab-admin')?.classList.add('bg-purple-50', 'text-purple-700', 'border-b-2', 'border-purple-600');
+                }
+            } else if (vista === 'inscriptos' && esAdmin) {
+                document.getElementById('vista-inscriptos').classList.remove('hidden');
+                document.getElementById('tab-inscriptos')?.classList.add('bg-purple-50', 'text-purple-700', 'border-b-2', 'border-purple-600');
+                cargarTablaInscriptos();
+            } else if (vista === 'qr' && esAdmin) {
+                document.getElementById('vista-qr').classList.remove('hidden');
+                document.getElementById('tab-qr')?.classList.add('bg-purple-50', 'text-purple-700', 'border-b-2', 'border-purple-600');
+                generarQR();
+            }
+        };
+
+        window.cargarTablaInscriptos = async function() {
+            if (unsubscribe) unsubscribe();
+
+            const q = query(collection(db, 'inscriptos'), orderBy('fecha', 'desc'));
+            
+            unsubscribe = onSnapshot(q, (snapshot) => {
+                const inscriptos = [];
+                snapshot.forEach((doc) => {
+                    inscriptos.push({ id: doc.id, ...doc.data() });
+                });
+
+                document.getElementById('contador-inscriptos').textContent = inscriptos.length;
+                const tabla = document.getElementById('tabla-inscriptos');
+                
+                if (inscriptos.length === 0) {
+                    tabla.innerHTML = '<div class="text-center py-12 text-gray-500"><p class="text-lg">Aún no hay inscriptos registrados</p></div>';
+                    return;
+                }
+
+                const hoy = new Date();
+                const puedeRevocar = hoy <= FECHA_RETIRO;
+
+                let html = '<div class="overflow-x-auto"><table class="w-full"><thead><tr class="bg-purple-50">';
+                html += '<th class="px-4 py-3 text-left text-sm font-semibold text-gray-700">Nombre</th>';
+                html += '<th class="px-4 py-3 text-left text-sm font-semibold text-gray-700">Apellido</th>';
+                html += '<th class="px-4 py-3 text-left text-sm font-semibold text-gray-700">Edad</th>';
+                html += '<th class="px-4 py-3 text-left text-sm font-semibold text-gray-700">Ciudad</th>';
+                html += '<th class="px-4 py-3 text-left text-sm font-semibold text-gray-700">Teléfono</th>';
+                html += '<th class="px-4 py-3 text-left text-sm font-semibold text-gray-700">Fecha</th>';
+                if (puedeRevocar) html += '<th class="px-4 py-3 text-left text-sm font-semibold text-gray-700">Acciones</th>';
+                html += '</tr></thead><tbody>';
+
+                inscriptos.forEach((inscripto, index) => {
+                    const bgClass = index % 2 === 0 ? 'bg-white' : 'bg-gray-50';
+                    html += `<tr class="${bgClass}">`;
+                    html += `<td class="px-4 py-3 text-sm text-gray-800">${inscripto.nombre}</td>`;
+                    html += `<td class="px-4 py-3 text-sm text-gray-800">${inscripto.apellido}</td>`;
+                    html += `<td class="px-4 py-3 text-sm text-gray-800">${inscripto.edad}</td>`;
+                    html += `<td class="px-4 py-3 text-sm text-gray-800">${inscripto.ciudad}</td>`;
+                    html += `<td class="px-4 py-3 text-sm text-gray-800">${inscripto.telefono}</td>`;
+                    html += `<td class="px-4 py-3 text-sm text-gray-600">${inscripto.fechaFormateada}</td>`;
+                    if (puedeRevocar) {
+                        html += `<td class="px-4 py-3 text-sm"><button onclick="revocarInscripcion('${inscripto.id}')" class="bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600 transition text-xs font-semibold">Revocar</button></td>`;
+                    }
+                    html += '</tr>';
+                });
+
+                html += '</tbody></table></div>';
+                tabla.innerHTML = html;
+            });
+        };
+
+        window.revocarInscripcion = async function(id) {
+            if (confirm('¿Estás seguro de que deseas revocar esta inscripción?')) {
+                try {
+                    await deleteDoc(doc(db, 'inscriptos', id));
+                } catch (error) {
+                    console.error('Error:', error);
+                    alert('Error al revocar la inscripción');
+                }
+            }
+        };
+
+        window.exportarCSV = async function() {
+            try {
+                const snapshot = await getDocs(collection(db, 'inscriptos'));
+                if (snapshot.empty) return;
+
+                let csv = 'Nombre,Apellido,Edad,Ciudad,Teléfono,Fecha de Inscripción\n';
+                snapshot.forEach(doc => {
+                    const i = doc.data();
+                    csv += `"${i.nombre}","${i.apellido}","${i.edad}","${i.ciudad}","${i.telefono}","${i.fechaFormateada}"\n`;
+                });
+
+                const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+                const link = document.createElement('a');
+                link.href = URL.createObjectURL(blob);
+                link.download = `inscriptos-retiro-${new Date().toLocaleDateString('es-AR')}.csv`;
+                link.click();
+            } catch (error) {
+                console.error('Error:', error);
+            }
+        };
+
+        window.generarQR = function() {
+            const url = window.location.href.split('?')[0];
+            const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(url)}`;
+            document.getElementById('img-qr').src = qrUrl;
+            document.getElementById('descargar-qr').href = qrUrl;
+        };
+
+        window.activarNotificaciones = async function() {
+            if (!messaging) {
+                const estadoDiv = document.getElementById('estado-notificaciones');
+                estadoDiv.textContent = '⚠️ Las notificaciones no están disponibles en este navegador.';
+                estadoDiv.className = 'mb-4 p-3 rounded-lg bg-yellow-50 text-yellow-800 text-sm';
+                estadoDiv.classList.remove('hidden');
+                return;
+            }
+            
+            try {
+                const permission = await Notification.requestPermission();
+                
+                if (permission === 'granted') {
+                    const token = await getToken(messaging, {
+                        vapidKey: 'BF_5zMd-OWxxxpQpPIMvbfZ2ik2LhYmORmNivQnk4Ts4'
+                    });
+                    
+                    localStorage.setItem('fcmToken', token);
+                    
+                    const estadoDiv = document.getElementById('estado-notificaciones');
+                    estadoDiv.textContent = '✅ Notificaciones activadas correctamente. Recibirás una alerta cada vez que alguien se inscriba.';
+                    estadoDiv.className = 'mb-4 p-3 rounded-lg bg-green-50 text-green-800 text-sm';
+                    estadoDiv.classList.remove('hidden');
+                    
+                    document.getElementById('btn-notificaciones').textContent = '✅ Notificaciones Activas';
+                    document.getElementById('btn-notificaciones').disabled = true;
+                    document.getElementById('btn-notificaciones').className = 'flex items-center gap-2 bg-gray-400 text-white px-4 py-2 rounded-lg cursor-not-allowed text-sm';
+                } else {
+                    const estadoDiv = document.getElementById('estado-notificaciones');
+                    estadoDiv.textContent = '⚠️ Permiso denegado. No podrás recibir notificaciones.';
+                    estadoDiv.className = 'mb-4 p-3 rounded-lg bg-yellow-50 text-yellow-800 text-sm';
+                    estadoDiv.classList.remove('hidden');
+                }
+            } catch (error) {
+                console.error('Error al activar notificaciones:', error);
+                const estadoDiv = document.getElementById('estado-notificaciones');
+                estadoDiv.textContent = '❌ Error al activar notificaciones. Tu navegador puede no soportarlas.';
+                estadoDiv.className = 'mb-4 p-3 rounded-lg bg-red-50 text-red-800 text-sm';
+                estadoDiv.classList.remove('hidden');
+            }
+        };
+
+        if (messaging) {
+            onMessage(messaging, (payload) => {
+                console.log('Mensaje recibido:', payload);
+                if (Notification.permission === 'granted') {
+                    new Notification(payload.notification.title, {
+                        body: payload.notification.body,
+                        icon: '/icon.png'
+                    });
+                }
+            });
+        }
+
+        window.cerrarSesion = function() {
+            esAdmin = false;
+            if (unsubscribe) unsubscribe();
+            document.getElementById('clave-admin').value = '';
+            
+            const navTabs = document.getElementById('nav-tabs');
+            navTabs.innerHTML = `
+                <button onclick="mostrarVista('formulario')" id="tab-formulario" class="flex-1 py-4 px-6 font-semibold transition-colors bg-purple-50 text-purple-700 border-b-2 border-purple-600">Formulario</button>
+                <button onclick="mostrarVista('admin')" id="tab-admin" class="flex-1 py-4 px-6 font-semibold transition-colors text-gray-600 hover:bg-gray-50">Administrador</button>
+            `;
+            
+            mostrarVista('formulario');
